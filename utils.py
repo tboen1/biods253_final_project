@@ -1,10 +1,10 @@
 import numpy as np
-import pandas as pd
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 def load_words(fp: str) -> set:
     '''
-    Loads list of wordle words
+    Loads list of all english words that contain only letters
     
     Params:
         fp: file path to wordle word list
@@ -45,44 +45,35 @@ def guess2color(answer: str, guess: str):
     Returns:
         - color: five letter string representing sequence of G,Y,X outputs
     '''
-        
-    assert len(answer) == 5, "answer must be a 5 letter word!"
-    assert len(guess) == 5, "answer must be a 5 letter word!"
     
-    color = [''] * len(answer)
-    misplaced = []
+    output = ["X"] * len(answer)
 
-    # Check for correct letters in the correct position
-    for i in range(len(answer)):
-        if guess[i] == answer[i]:
-            color[i] = 'G'  # Green block
-        else:
-            misplaced.append(answer[i])
+    for index, (guess_letter, target_letter) in enumerate(zip(guess, answer)):
+        if guess_letter == target_letter:
+            output[index] = "G"
+            answer = answer.replace(guess_letter, "X", 1)
+    
+    for index, (guess_letter, target_letter) in enumerate(zip(guess, answer)):
+        if guess_letter in answer and output[index] == "X":
+            output[index] = "Y"
+            answer = answer.replace(guess_letter, "X", 1)
 
-    # Check for correct letters in the wrong position
-    for i in range(len(answer)):
-        if color[i] != 'G':
-            if guess[i] in misplaced:
-                misplaced.remove(guess[i])
-                color[i] = 'Y'  # Yellow block
-            else:
-                color[i] = 'X'  # Grey block
-
-    return ''.join(color)
+    return ''.join(output)
 
 def get_color_distribution(guess: str, possible_answers: set,
-                           show_progress: bool = True):
+                           show_progress: bool = False):
     '''
     Given a guess and a set of possible answers, 
     computes the distribution of possible color outputs
     as a dictionary. 
     
     Args:
-        - guess. Word to guess
-        - possible_answers. set of potential answers
+        - guess: Word to guess
+        - possible_answers: set of potential answers
+        - show_progress: display tqdm progress bar
         
     Returns:
-        - dist. Dictionary with keys outputs and values
+        - dist: Dictionary with keys outputs and values
                 list of words that could've generated that output
     '''
     
@@ -90,6 +81,7 @@ def get_color_distribution(guess: str, possible_answers: set,
     
     for answer in tqdm(possible_answers, total = len(possible_answers),
                        disable = not show_progress):
+        
         output = guess2color(answer = answer, guess = guess)
         
         if output in dist.keys():
@@ -100,7 +92,9 @@ def get_color_distribution(guess: str, possible_answers: set,
             
     return dist
 
-def get_expected_information(guesses: set, answers: set, show_progress = True):
+def get_expected_information(guesses: set, answers: set, 
+                             return_sorted = True,
+                             show_progress = False):
     '''
     Given a set of guesses and a set of possible answers, 
     computes the expected information of each guess. 
@@ -117,6 +111,8 @@ def get_expected_information(guesses: set, answers: set, show_progress = True):
     Args:
         - guesses: set of guess words
         - answers: set of possible answer words
+        - return_sorted: sort by decreasing information 
+        - show_progress: display tqdm progress bar
         
     Returns: 
         - guess_information: dictionary with keys guesses andd 
@@ -130,8 +126,7 @@ def get_expected_information(guesses: set, answers: set, show_progress = True):
                                             possible_answers = answers, 
                                             show_progress = False)
 
-        num_matches = np.asarray([len(color_dist[key]) for 
-                                  key in color_dist.keys()])
+        num_matches = np.asarray([len(x) for x in list(color_dist.values())])
         
         p_vals = num_matches/np.sum(num_matches)
 
@@ -139,4 +134,35 @@ def get_expected_information(guesses: set, answers: set, show_progress = True):
         
         guess_information[g] = expected_information
         
+    if return_sorted:
+        guess_information = dict(sorted(guess_information.items(), 
+                                   key=lambda item: item[1], 
+                                   reverse = True))
+        
     return guess_information
+
+
+def postprocessing_heuristic(guess_information, possible_answers):
+    '''    
+    In the case where there are several guesses all 
+    with the maximum expected information, randomly select 
+    the guesses that lie in the remaining answer set in the 
+    hopes of getting lucky, while maximizing information gain. 
+    
+    Args
+        - guess_information: dict with keys guess, vals expected information
+        - possible_answers: list of remaining possible answers from previous outputs
+        
+    Returns
+        - list of lucky information maximizing guesses
+    '''
+    
+    guess, info = np.asarray(list(guess_information.items())).T
+    info = info.astype(np.float32)
+    
+    top_tied_guesses = guess[np.where(info == info.max())[0]]
+
+    lucky_guesses = np.intersect1d(top_tied_guesses,
+                                   np.asarray(possible_answers))
+    
+    return list(lucky_guesses)
