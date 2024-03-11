@@ -178,12 +178,12 @@ def next_guess_options(guess_df: pd.DataFrame, strategy: str):
     Args:
         - guess_df: pandas dataframe with columns guess, 
                     info, and possible answer
-        - strategy: one of best_answer, best_info, or random_answer
+        - strategy: one of best_answer, best_guess, or random_answer
                  
                  - best_answer:
                          picks possible answers with highest information. 
                  
-                 - best_info: 
+                 - best_guess: 
                          picke guesses with highest information. 
                          If a guess or guesses has both the highest information 
                          and is a possible answer, this guess is selected. 
@@ -205,23 +205,23 @@ def next_guess_options(guess_df: pd.DataFrame, strategy: str):
         
         return list(best_answer)
         
-    elif strategy == "best_info":
+    elif strategy == "best_guess":
         
         choice_df = guess_df
         max_info = choice_df['information'].max()
         
         #guesses with maximum info, including ties
-        best_info_guess = choice_df[choice_df["information"] == max_info]["guess"].values
+        best_guess_guess = choice_df[choice_df["information"] == max_info]["guess"].values
         
         #guesses with maximum info that are also possible answers, including ties
-        best_info_answer = choice_df[(choice_df["information"] == max_info) & 
+        best_guess_answer = choice_df[(choice_df["information"] == max_info) & 
                                     (choice_df["possible_answer"])]['guess'].values
         
-        if len(best_info_answer) > 0:
-            return list(best_info_answer)
+        if len(best_guess_answer) > 0:
+            return list(best_guess_answer)
         
         else:
-            return list(best_info_guess)
+            return list(best_guess_guess)
         
     elif strategy == "random_answer":
         
@@ -231,7 +231,7 @@ def next_guess_options(guess_df: pd.DataFrame, strategy: str):
         return list(choice_df['guess'].values)
     
     else:
-        raise ValueError("strategy must be one of 'best_answer', 'best_info', or 'random_answer'")
+        raise ValueError("strategy must be one of 'best_answer', 'best_guess', or 'random_answer'")
         
 def filter_answers(board: list, possible_answers: list, precomputed_outputs: dict = None):
     '''
