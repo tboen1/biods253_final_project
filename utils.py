@@ -3,7 +3,7 @@ import pandas as pd
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
-def load_words(fp: str) -> set:
+def load_words(fp: str):
     '''
     Loads list of all english words that contain only letters
     
