@@ -4,7 +4,7 @@ This codebase helps you make intelligent guesses when playing wordle, using idea
 
 ### Installation
 
-Clone this repository and run `conda env create -f environment.yml` to create the conda environment. Then run `conda activate wordle`. 
+Clone this repository and run `conda env create -f env.yml` to create the conda environment. Then run `conda activate wordle`. 
 
 ### User Guide
 
