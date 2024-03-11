@@ -5,6 +5,7 @@ from tqdm import tqdm
 import cmd
 
 import argparse
+import os
 
 from utils import (load_words, 
                    guess2color, 
@@ -66,7 +67,7 @@ def execute_wordle_solver(board: list, valid_words: list, starting_guesses: pd.D
             guess_df = build_guess_df(guess_information, possible_answers)
 
             if verbose:
-                display(guess_df, ["best_info", "best_answer"])
+                display(guess_df, ["best_guess", "best_answer"])
 
             return guess_df
 
@@ -77,7 +78,7 @@ def display(guess_df, strategies_list, n=20):
     Args
         - guess_df: pandas dataframe with columns guess (str), 
                     information (float), and possible answer (bool)
-        - strategies_list: list of best_answer, best_info, random_answer
+        - strategies_list: list of best_answer, best_guess, random_answer
     
     Returns
         - None. Simply prints nice looking messages
@@ -116,25 +117,17 @@ def display(guess_df, strategies_list, n=20):
         cli.columnize(next_guess, displaywidth=80)
         print("\n")       
     
-    
-def config(args):
+def check_board(board: list):
     '''
-    Cleans up arguments and ensures correct behavior
+    Cleans up board and ensures correct behavior
     
     Args
         - board: Previous wordle guesses and outputs
-        - words_file: List of wordle words
-        - starting_guesses: precomputed starting guesses
     
     Returns
         - reshaped_board: N x 2 list of guesses and outputs
-        - words_file: wordle words as set
-        - starting_guesses: saves starting guesses to csv
     '''
-    
-    ############ Board ############
-    board = args.board
-    
+        
     if len(board)%2 != 0:
         raise ValueError("unequal number of guesses and outputs!")
     
@@ -153,30 +146,52 @@ def config(args):
             raise ValueError("outputs must be X: grey,Y: yellow, or G: green")
             
         final_board.append((guess.lower(), output.upper()))
+        
+    return final_board
+
+def check_data(data_dir: str):
+    '''
+    Checks for words file and precomputed guesses within data_dir. 
     
-    ############ Words File ############
-    try:
-        valid_words = load_words(args.words_file)
-    except:
-        print("words file: {} not found!".format(args.words_file))
-        raise 
+    If precomputed guesses aren't found, precomputes them. 
     
-    ############ Starting Guesses ############
-    try:
-        starting_guesses = pd.read_csv(args.starting_guesses, index_col = 0)
-    except:
+    Args
+        - data_dir. Expects words file inside to be called "wordle_words.txt"
+        
+    Returns
+        - potentially saves starting_guesses.csv into data_dir
+    '''
+    
+    #checking data directory
+    if os.path.isdir(data_dir):
+        pass
+    else:
+        raise ValueError("data directory: {} does not exist!".format(data_dir))
+    
+    #checking words file
+    words_file = "{}/wordle_words.txt".format(data_dir)
+    if os.path.isfile(words_file):
+        valid_words = load_words(words_file)
+    else:
+        raise ValueError("wordle_words.txt not found in {}!".format(data_dir))
+        
+    #checking precomputed starting guesses
+    starting_guesses_file = "{}/starting_guesses.csv".format(data_dir)
+    if os.path.isfile(starting_guesses_file):
+        pass
+    else:
         print("Precomputed starting guesses not found, computing now ... ")
         
         guess_information = get_expected_information(guesses = valid_words, 
                                                      answers = valid_words,
                                                      show_progress = True)
-        suggested_guesses = pd.DataFrame({"guess": list(guess_information.keys()),
+        starting_guesses = pd.DataFrame({"guess": list(guess_information.keys()),
                                   "information": list(guess_information.values())})
-        suggested_guesses.to_csv(args.starting_guesses)
+        starting_guesses.to_csv(starting_guesses_file)
         
-        print("DONE! Starting guesses saved to: {}".format(ags.starting_guesses))
+        print("DONE! Starting guesses saved to: {}".format(starting_guesses_file))
         
-    return final_board, valid_words, starting_guesses
+    return valid_words, starting_guesses
     
 
 if __name__ == "__main__":
@@ -200,12 +215,12 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("--board", help = help_message, type = str, nargs = "*", default = [])
-    parser.add_argument("--words_file", help = "list of words", default = "wordle_words.txt", type = str)
-    parser.add_argument("--starting_guesses", help = "starting guesses", default = "starting_guesses.csv", type = str)
+    parser.add_argument("--data_dir", help = "directory with wordle_words.txt", default = "data", type = str)
     
     args = parser.parse_args()
     
-    final_board, valid_words, starting_guesses = config(args)
+    final_board = check_board(args.board)
+    valid_words, starting_guesses = check_data(args.data_dir)
     
     execute_wordle_solver(final_board, valid_words, starting_guesses)
     
