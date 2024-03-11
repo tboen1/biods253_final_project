@@ -170,6 +170,7 @@ def check_data(data_dir: str):
     
     #checking words file
     words_file = "{}/wordle_words.txt".format(data_dir)
+    
     if os.path.isfile(words_file):
         valid_words = load_words(words_file)
     else:
@@ -177,8 +178,9 @@ def check_data(data_dir: str):
         
     #checking precomputed starting guesses
     starting_guesses_file = "{}/starting_guesses.csv".format(data_dir)
+    
     if os.path.isfile(starting_guesses_file):
-        pass
+        starting_guesses = pd.read_csv(starting_guesses_file, index_col = 0)
     else:
         print("Precomputed starting guesses not found, computing now ... ")
         
