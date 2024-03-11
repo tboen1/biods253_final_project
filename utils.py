@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
@@ -13,7 +14,7 @@ def load_words(fp: str) -> set:
     with open(fp) as word_file:
         valid_words = set(word_file.read().split())
 
-    return valid_words
+    return list(valid_words)
 
 def guess2color(answer: str, guess: str):
     '''
@@ -60,8 +61,9 @@ def guess2color(answer: str, guess: str):
 
     return ''.join(output)
 
-def get_color_distribution(guess: str, possible_answers: set,
-                           show_progress: bool = False):
+def get_color_distribution(guess: str, possible_answers: list,
+                           show_progress: bool = False, 
+                           precomputed_outputs: dict = None):
     '''
     Given a guess and a set of possible answers, 
     computes the distribution of possible color outputs
@@ -71,6 +73,7 @@ def get_color_distribution(guess: str, possible_answers: set,
         - guess: Word to guess
         - possible_answers: set of potential answers
         - show_progress: display tqdm progress bar
+        - precomputed_outputs: precomputed answer-guess output pairs
         
     Returns:
         - dist: Dictionary with keys outputs and values
@@ -82,7 +85,10 @@ def get_color_distribution(guess: str, possible_answers: set,
     for answer in tqdm(possible_answers, total = len(possible_answers),
                        disable = not show_progress):
         
-        output = guess2color(answer = answer, guess = guess)
+        if precomputed_outputs is None:
+            output = guess2color(answer = answer, guess = guess)
+        else:
+            output = precomputed_outputs[(answer, guess)]
         
         if output in dist.keys():
             dist[output].append(answer)
@@ -92,9 +98,10 @@ def get_color_distribution(guess: str, possible_answers: set,
             
     return dist
 
-def get_expected_information(guesses: set, answers: set, 
-                             return_sorted = True,
-                             show_progress = False):
+def get_expected_information(guesses: list, answers: list, 
+                             return_sorted: bool = True,
+                             show_progress: bool = False,
+                             precomputed_outputs: dict = None):
     '''
     Given a set of guesses and a set of possible answers, 
     computes the expected information of each guess. 
@@ -102,7 +109,7 @@ def get_expected_information(guesses: set, answers: set,
     That is, for a given guess g, it's expected information E_g[I]
     is given by: 
     
-    E_g[I] = - \Sum_x p(x) \log_2(p(x))
+    E_g[I] = - Sum_x p(x) log_2(p(x))
     
     Where x indicates a color output, and p(x) indicates 
     the probability of that color output occuring given the 
@@ -113,6 +120,7 @@ def get_expected_information(guesses: set, answers: set,
         - answers: set of possible answer words
         - return_sorted: sort by decreasing information 
         - show_progress: display tqdm progress bar
+        - precomputed_outputs: precomputed answer-guess output pairs
         
     Returns: 
         - guess_information: dictionary with keys guesses andd 
@@ -124,7 +132,8 @@ def get_expected_information(guesses: set, answers: set,
     for g in tqdm(guesses, total = len(guesses), disable = not show_progress):
         color_dist = get_color_distribution(guess = g, 
                                             possible_answers = answers, 
-                                            show_progress = False)
+                                            show_progress = False,
+                                            precomputed_outputs = precomputed_outputs)
 
         num_matches = np.asarray([len(x) for x in list(color_dist.values())])
         
@@ -141,28 +150,104 @@ def get_expected_information(guesses: set, answers: set,
         
     return guess_information
 
-
-def postprocessing_heuristic(guess_information, possible_answers):
-    '''    
-    In the case where there are several guesses all 
-    with the maximum expected information, randomly select 
-    the guesses that lie in the remaining answer set in the 
-    hopes of getting lucky, while maximizing information gain. 
+def build_guess_df(guess_information: dict, possible_answers: list):
+    '''
+    Structures guesses
     
     Args
-        - guess_information: dict with keys guess, vals expected information
-        - possible_answers: list of remaining possible answers from previous outputs
+        - possible_answers: list of possible answers
+        - guess_information: dict with keys guess and values information
         
     Returns
-        - list of lucky information maximizing guesses
+        - guess_df: pandas dataframe with columns guess (str), 
+                    information (float), and possible answer (bool)
     '''
     
-    guess, info = np.asarray(list(guess_information.items())).T
-    info = info.astype(np.float32)
+    guess_df = pd.DataFrame({"guess": list(guess_information.keys()),
+                         "information": list(guess_information.values())})
     
-    top_tied_guesses = guess[np.where(info == info.max())[0]]
+    guess_df['possible_answer'] = guess_df["guess"].apply(lambda x: x in possible_answers)
+    
+    return guess_df
 
-    lucky_guesses = np.intersect1d(top_tied_guesses,
-                                   np.asarray(possible_answers))
+
+def next_guess_options(guess_df: pd.DataFrame, strategy: str):
+    '''
+    Offers choices for the next guess based on strategy
     
-    return list(lucky_guesses)
+    Args:
+        - guess_df: pandas dataframe with columns guess, 
+                    info, and possible answer
+        - strategy: one of best_answer, best_info, or random_answer
+                 
+                 - best_answer:
+                         picks possible answers with highest information. 
+                 
+                 - best_info: 
+                         picke guesses with highest information. 
+                         If a guess or guesses has both the highest information 
+                         and is a possible answer, this guess is selected. 
+                         
+                - random_answer:
+                         randomly selects guesses that are possible answers
+    
+    Returns:
+        - list of guesses
+    '''
+    
+    if strategy == "best_answer":
+        
+        choice_df = guess_df[guess_df["possible_answer"]]
+        max_info = choice_df['information'].max()
+        
+        #guesses with maximum info that are possible answers
+        best_answer = choice_df[choice_df["information"] == max_info]["guess"].values
+        
+        return list(best_answer)
+        
+    elif strategy == "best_info":
+        
+        choice_df = guess_df
+        max_info = choice_df['information'].max()
+        
+        #guesses with maximum info, including ties
+        best_info_guess = choice_df[choice_df["information"] == max_info]["guess"].values
+        
+        #guesses with maximum info that are also possible answers, including ties
+        best_info_answer = choice_df[(choice_df["information"] == max_info) & 
+                                    (choice_df["possible_answer"])]['guess'].values
+        
+        if len(best_info_answer) > 0:
+            return list(best_info_answer)
+        
+        else:
+            return list(best_info_guess)
+        
+    elif strategy == "random_answer":
+        
+        #any possible answer
+        choice_df = guess_df[guess_df['possible_answer']]
+        
+        return list(choice_df['guess'].values)
+    
+    else:
+        raise ValueError("strategy must be one of 'best_answer', 'best_info', or 'random_answer'")
+        
+def filter_answers(board: list, possible_answers: list, precomputed_outputs: dict = None):
+    '''
+    Filters possible anwers based on previous guesses and outputs
+    
+    Args
+        - board: list of tuples, guess and output. 
+        - possible_answers: list of candidate words
+        - precomputed_outputs: precomputed answer-guess output pairs
+
+    Returns
+        - possible_answers: list of possible words
+    '''
+    for (guess, output) in board:      
+        color_distribution = get_color_distribution(guess, possible_answers, 
+                                                    precomputed_outputs = precomputed_outputs)
+        possible_answers = color_distribution[output]
+        
+    return possible_answers
