@@ -166,7 +166,7 @@ def check_data(data_dir: str):
     if os.path.isdir(data_dir):
         pass
     else:
-        raise ValueError("data directory: {} does not exist!".format(data_dir))
+        raise FileNotFoundError("data directory: {} does not exist!".format(data_dir))
     
     #checking words file
     words_file = "{}/wordle_words.txt".format(data_dir)
@@ -174,7 +174,7 @@ def check_data(data_dir: str):
     if os.path.isfile(words_file):
         valid_words = load_words(words_file)
     else:
-        raise ValueError("wordle_words.txt not found in {}!".format(data_dir))
+        raise FileNotFoundError("wordle_words.txt not found in {}!".format(data_dir))
         
     #checking precomputed starting guesses
     starting_guesses_file = "{}/starting_guesses.csv".format(data_dir)
