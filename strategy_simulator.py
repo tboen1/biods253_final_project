@@ -15,7 +15,7 @@ from utils import (load_words,
                    build_guess_df)
 
 from wordle_solver import (execute_wordle_solver,
-                           config)
+                           check_data)
 
 def play_game(secret_word: str, first_guess: str, strategy: str, valid_words: list, 
                                                   precomputed_outputs: dict = None):
@@ -25,7 +25,7 @@ def play_game(secret_word: str, first_guess: str, strategy: str, valid_words: li
     Args
         - secret_word: secret word
         - first_guess: first guess
-        - strategy: one of best_answer, best_info, or random_answer
+        - strategy: one of best_answer, best_guess, or random_answer
         - valid_words: set of wordle words
         - precomputed_outputs: precomputed answer-guess output pairs
     '''
@@ -43,7 +43,7 @@ def play_game(secret_word: str, first_guess: str, strategy: str, valid_words: li
         possible_answers = filter_answers(reshaped_board, valid_words, 
                                           precomputed_outputs = precomputed_outputs)
 
-        if strategy in ["best_answer", "best_info"]:
+        if strategy in ["best_answer", "best_guess"]:
 
             guess_information = get_expected_information(guesses = valid_words, 
                                                          answers = possible_answers,
@@ -73,7 +73,7 @@ def evaluate_strategy(strategy: str, valid_words: list, starting_guesses: pd.Dat
     Simulates Wordle Strategy Performance
     
     Args
-        - strategy: one of best_answer, best_info, or random_answer
+        - strategy: one of best_answer, best_guess, or random_answer
         - valid_words: set of wordle words
         - starting_guesses: dataframe with precomputed guesses and 
                             information values for first guess
@@ -84,7 +84,7 @@ def evaluate_strategy(strategy: str, valid_words: list, starting_guesses: pd.Dat
                         values board of guesses and results
     '''
 
-    if strategy in ["best_answer", "best_info"]:
+    if strategy in ["best_answer", "best_guess"]:
         #pick best first guess out of precomputed guesses
         starting_guess = starting_guesses[starting_guesses["information"] == 
                                        starting_guesses["information"].max()]["guess"].values[0]
@@ -92,7 +92,7 @@ def evaluate_strategy(strategy: str, valid_words: list, starting_guesses: pd.Dat
         starting_guess = None
     
     else:
-        raise ValueError("strategy must be one of 'best_answer', 'best_info', or 'random_answer'")
+        raise ValueError("strategy must be one of 'best_answer', 'best_guess', or 'random_answer'")
 
     full_results = {}
     
@@ -115,7 +115,7 @@ def run_simulations(strategy_list: list, valid_words: list, starting_guesses: pd
     Runs strategy simulations
     
     Args
-        - strategy_list: list containing best_answer, best_info, or random_answer
+        - strategy_list: list containing best_answer, best_guess, or random_answer
         - valid_words: list of wordle words
         - starting_guesses: dataframe with precomputed guesses and 
                             information values for first guess
@@ -153,16 +153,14 @@ if __name__ == "__main__":
     
     parser.add_argument("-results_dir", help = "path to results folder", type = str)
     parser.add_argument("--num_reps", help = "number of repetitions", type = int, default = 10)
-    parser.add_argument("--strategy_list", help = "strategies to simulate", nargs = "*", type = str, default = ["best_info",
+    parser.add_argument("--strategy_list", help = "strategies to simulate", nargs = "*", type = str, default = ["best_guess",
                                                                                                            "best_answer", 
                                                                                                            "random_answer"])
-    parser.add_argument("--words_file", help = "list of words", default = "wordle_words.txt", type = str)
-    parser.add_argument("--starting_guesses", help = "starting guesses", default = "starting_guesses.csv", type = str)
+    parser.add_argument("--data_dir", help = "directory with wordle_words.txt", default = "data", type = str)
     
     args = parser.parse_args()
-    args.board = [] #empty board since no user input
     
-    _, valid_words, starting_guesses = config(args)
+    valid_words, starting_guesses = check_data(args)
     
     if not os.path.isdir(args.results_dir):
         print("Warning! {} directory not found, creating directory".format(args.results_dir))
