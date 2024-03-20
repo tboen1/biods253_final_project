@@ -17,7 +17,7 @@ class wordle_tests(unittest.TestCase):
         self.assertEqual(guess2color("child", "couch"), "GXXXY")
 
     def test_color_distribution(self):
-        valid_words = load_words("wordle_words.txt")
+        valid_words = load_words("data/wordle_words.txt")
         dist = get_color_distribution(guess = "colly",
                                   possible_answers = valid_words,
                                   show_progress = False)
