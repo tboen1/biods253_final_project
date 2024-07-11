@@ -25,7 +25,7 @@ This program will provide next guess suggestions from two strategies: `best_gues
 
 Let's say that you guessed "crane" and saw the sequence 🟩 🟨 ⬜ ⬜ ⬜. 
 
-To find the next guess, you could enter in the command `python wordle_solver --board "crane" "GYXXX"`, which would produce the following output. 
+To find the next guess, you could enter in the command `python wordle_solver.py --board "crane" "GYXXX"`, which would produce the following output. 
 
 ```
 There are 9 possible answers remaining. 
